@@ -11,6 +11,10 @@ app.secret_key = 'your_secret_key_here'
 
 PRICE_FILE = 'prices.json'
 CODE_FILE = 'code.json'
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
 
 
 # --- Helper Functions ---
@@ -21,6 +25,8 @@ def load_data(filename):
     with open(filename, 'r') as f:
         return json.load(f)
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
         
 def load_user_data(filename):
     user = session.get('username')
@@ -43,8 +49,11 @@ def save_data(filename, data):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 def load_users():
+    if not os.path.exists('users.json'):
+        return {}
     with open('users.json', 'r') as f:
         return json.load(f)
+
 
 def get_code_file():
     user = session.get('username')
@@ -80,25 +89,84 @@ def login_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form['password'].strip()
-        users = load_users()
+        username = request.form.get('username')
+        password = request.form.get('password')
 
-        for user in users:
-            if user['username'] == username and user['password'] == password:
-                session['logged_in'] = True
-                session['username'] = username
+        # Load users dari JSON
+        if not os.path.exists('users.json'):
+            flash('Database pengguna tidak ditemukan.', 'danger')
+            return redirect(url_for('login'))
 
-                # Create user-specific files if not exist
-                for file in [get_code_file(), get_voucher_file()]:
-                    if not os.path.exists(file):
-                        save_data(file, [])
+        with open('users.json', 'r') as f:
+            users = json.load(f)
 
-                flash('Login berhasil!', 'success')
-                return redirect(url_for('index'))
+        # Cek kredensial
+        if username in users and users[username]['password'] == password:
+            session['username'] = username
+            flash('Login berhasil!', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Username atau password salah.', 'danger')
+            return redirect(url_for('login'))
 
-        flash('Username atau password salah.', 'danger')
     return render_template('login.html')
+
+    
+@app.route('/edit_profile', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    username = session['username']
+    users = load_data('users.json')
+
+    if request.method == 'POST':
+        new_name = request.form.get('name', '').strip()
+        file = request.files.get('profile_image')
+
+        if new_name:
+            users[username]['name'] = new_name
+
+            # Handle file upload
+            if file and allowed_file(file.filename):
+                ext = file.filename.rsplit('.', 1)[1].lower()
+                filename = f"{username}.{ext}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                users[username]['profile_image'] = filename
+
+            save_data('users.json', users)
+            flash('Profil berhasil diperbarui.', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Nama tidak boleh kosong.', 'danger')
+
+    current_name = users[username].get('name', '')
+    current_image = users[username].get('profile_image', '')
+    return render_template('edit_profile.html', current_name=current_name, current_image=current_image)
+
+
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    username = session['username']
+    if request.method == 'POST':
+        current = request.form['current_password']
+        new = request.form['new_password']
+        confirm = request.form['confirm_password']
+
+        with open('users.json', 'r') as f:
+            users = json.load(f)
+
+        if users[username]['password'] != current:
+            flash('Password saat ini salah.', 'danger')
+        elif new != confirm:
+            flash('Konfirmasi password tidak cocok.', 'danger')
+        else:
+            users[username]['password'] = new
+            with open('users.json', 'w') as f:
+                json.dump(users, f, indent=4)
+            flash('Password berhasil diubah.', 'success')
+            return redirect(url_for('index'))
+
+    return render_template('change_password.html')
     
 @app.route('/statistic')
 @login_required
@@ -126,10 +194,11 @@ def logout():
     return redirect(url_for('login'))
 
 # --- Routes ---
-@app.route('/')
 @login_required
+@app.route('/')
 def index():
-    return render_template('index.html')
+    users = load_data('users.json')
+    return render_template('index.html', users=users)
 
 @app.route('/redeem', methods=['GET', 'POST'])
 @login_required

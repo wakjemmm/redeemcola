@@ -1,14 +1,12 @@
-[
-  {
-    "username": "wakjemmm",
-    "password": "azzamifah20"
-  },
-  {
-    "username": "bocahaptos",
-    "password": "faqih123"
-  },
-  {
-    "username": "edysyahputra",
-    "password": "bisasukses123"
-  }
-]
+{
+    "faqih": {
+        "password": "faqih123",
+        "name": "BocahAptos",
+        "profile_image": "bocahaptos.jpg"
+    },
+    "wakjemmm": {
+        "password": "azzam123",
+        "name": "Wakjemmm",
+        "profile_image": "wakjemmm.png"
+    }
+}
