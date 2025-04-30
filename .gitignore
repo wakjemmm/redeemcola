@@ -1,0 +1,12 @@
+# Abaikan folder data
+data/
+
+# Abaikan file Python cache
+__pycache__/
+*.pyc
+
+# Abaikan file environment
+.env
+
+# Abaikan database lokal
+*.sqlite3
