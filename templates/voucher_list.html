@@ -7,7 +7,10 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h2 class="mb-4">Daftar Voucher</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-0">Daftar Voucher</h2>
+      <a href="{{ url_for('index') }}" class="btn btn-secondary">← Kembali ke Menu Utama</a>
+    </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -19,6 +22,21 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
+
+    <!-- Filter -->
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <input type="text" id="searchInput" class="form-control" placeholder="Cari berdasarkan kode">
+      </div>
+      <div class="col-md-4">
+        <select id="filterTipe" class="form-select">
+          <option value="">Semua Tipe Voucher</option>
+          {% for tipe in tipe_options %}
+            <option value="{{ tipe }}">{{ tipe }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
 
     <form action="{{ url_for('add_voucher') }}" method="POST" class="row g-3 mb-4">
       <div class="col-md-5">
@@ -38,6 +56,24 @@
       </div>
     </form>
 
+    <!-- Form Edit Harga -->
+    <form class="row g-3 mb-4" action="/update_price" method="post">
+      <div class="col-md-5">
+        <select name="tipe" class="form-select" required>
+          <option value="" disabled selected>Pilih Tipe Voucher untuk Edit Harga</option>
+          {% for tipe in tipe_options %}
+            <option value="{{ tipe }}">{{ tipe }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <input type="number" name="price" class="form-control" placeholder="Harga (contoh: 25000)" required>
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-warning w-100">Perbarui Harga</button>
+      </div>
+    </form>
+
     <div class="table-responsive">
       <table class="table table-bordered table-hover bg-white">
         <thead class="table-secondary">
@@ -46,44 +82,70 @@
             <th>Tipe</th>
             <th>Status</th>
             <th>Tanggal Input</th>
+            <th>Harga</th>
             <th>Aksi</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="voucherTable">
           {% for v in vouchers %}
           <tr>
-  <td>{{ v.code }}</td>
-  <td>{{ v.tipe }}</td>
-  <td>
-    {% if v.status == 'sold' %}
-      <span class="badge bg-danger">Terjual</span>
-    {% else %}
-      <span class="badge bg-success">Belum Terjual</span>
-    {% endif %}
-  </td>
-  <td>{{ v.created_at }}</td>
-  <td> <!-- Inilah kolom aksi yang benar -->
-	<form action="{{ url_for('update_voucher_status', voucher_id=v.id) }}" method="POST" style="display:inline;">
-  <button type="submit" class="btn btn-primary btn-sm">Toggle Status</button>
-</form>
-    <form action="{{ url_for('delete_voucher', voucher_id=v.id) }}" method="POST" style="display:inline;">
-      <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
-    </form>
-  </td>
-</tr>
-
+            <td>{{ v.code }}</td>
+            <td>{{ v.tipe }}</td>
+            <td>
+              {% if v.status == 'sold' %}
+                <span class="badge bg-danger">Terjual</span>
+              {% else %}
+                <span class="badge bg-success">Belum Terjual</span>
+              {% endif %}
+            </td>
+            <td>{{ v.created_at }}</td>
+            <td>
+              {% if v.tipe in prices %}
+                Rp{{ "{:,.0f}".format(prices[v.tipe]) }}
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              <form action="{{ url_for('update_voucher_status', voucher_id=v.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-primary btn-sm">Toggle Status</button>
+              </form>
+              <form action="{{ url_for('delete_voucher', voucher_id=v.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm">Hapus</button>
+              </form>
+            </td>
+          </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="text-center">Belum ada voucher.</td>
+            <td colspan="6" class="text-center">Belum ada voucher.</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-
-    <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">← Kembali ke Menu Utama</a>
   </div>
 
+  <script>
+    const searchInput = document.getElementById('searchInput');
+    const filterTipe = document.getElementById('filterTipe');
+    const table = document.getElementById('voucherTable');
+
+    function filterTable() {
+      const keyword = searchInput.value.toLowerCase();
+      const selectedTipe = filterTipe.value;
+      const rows = table.getElementsByTagName('tr');
+      for (let row of rows) {
+        const kode = row.cells[0].innerText.toLowerCase();
+        const tipe = row.cells[1].innerText;
+        const matchKode = kode.includes(keyword);
+        const matchTipe = selectedTipe === '' || tipe === selectedTipe;
+        row.style.display = (matchKode && matchTipe) ? '' : 'none';
+      }
+    }
+
+    searchInput.addEventListener('input', filterTable);
+    filterTipe.addEventListener('change', filterTable);
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
